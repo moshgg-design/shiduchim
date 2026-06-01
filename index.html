@@ -818,13 +818,15 @@ thead th.sort-desc::after{content:" ↓";font-size:.7rem;opacity:.85}
       <div class="itabs">
         <div class="itab active" id="itab0" onclick="switchPanel('det')">📋 פרטים</div>
         <div class="itab"        id="itab1" onclick="switchPanel('fam')">🌳 משפחה</div>
-        <div class="itab"        id="itab2" onclick="switchPanel('str')">🏠 שכנים</div>
-        <div class="itab"        id="itab3" onclick="switchPanel('stib')">🕍 שטיבל</div>
+        <div class="itab"        id="itab2" onclick="switchPanel('mch')">🤝 מחותנים</div>
+        <div class="itab"        id="itab3" onclick="switchPanel('str')">🏠 שכנים</div>
+        <div class="itab"        id="itab4" onclick="switchPanel('stib')">🕍 שטיבל</div>
       </div>
       <div id="pDet"></div>
       <div id="pFam"  style="display:none"></div>
       <div id="pStr"  style="display:none"></div>
       <div id="pStib" style="display:none"></div>
+      <div id="pMch"  style="display:none"></div>
     </div>
   </div>
 </div>
@@ -856,7 +858,7 @@ function init(){
   document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
   initShidUpload();
-  ['pFam','pStr','pStib'].forEach(pid=>{
+  ['pFam','pStr','pStib','pMch'].forEach(pid=>{
     document.getElementById(pid).addEventListener('click',e=>{
       const card=e.target.closest('.pcard[data-id]');
       if(card){ drillDown(card.dataset.id); return; }
@@ -1068,6 +1070,7 @@ function renderModal(){
   buildFam(r);
   buildStreet(r);
   buildShtibel(r);
+  buildMechutanim(r);
   switchPanel('det');
   setTimeout(updateShidBackBtn,0);
 }
@@ -1131,9 +1134,9 @@ function buildShidLinks(r){
 
 /* ── Family tree ─────────────────────────────── */
 function switchPanel(p){
-  ['det','fam','str','stib'].forEach((id,i)=>{
+  ['det','fam','mch','str','stib'].forEach((id,i)=>{
     document.getElementById('itab'+i).classList.toggle('active',p===id);
-    document.getElementById(['pDet','pFam','pStr','pStib'][i]).style.display=p===id?'block':'none';
+    document.getElementById(['pDet','pFam','pMch','pStr','pStib'][i]).style.display=p===id?'block':'none';
   });
 }
 
@@ -1317,6 +1320,55 @@ function buildStreet(r){
     rest.sort((a,b)=>(a['משפחה']||'').localeCompare(b['משפחה']||'','he'));
     if(rest.length) h+=makeTable(rest,'שאר הרחוב','📍');
   }
+  panel.innerHTML=h;
+}
+
+
+function buildMechutanim(r){
+  const id=(r['מספר תורם']||'').trim();
+  const panel=document.getElementById('pMch');
+  const mechs={};
+
+  // בנים → אבי הכלה = מחותן
+  (kidOf[id]||[]).forEach(son=>{
+    const cId=(son["מס' תורם חותן"]||'').trim();
+    if(cId&&cId!=='0'&&byId[cId]&&!mechs[cId]){
+      const sNm=(son['תואר']?son['תואר']+' ':'')+(son['שם_מלא']||son['משפחה']||'');
+      mechs[cId]={rec:byId[cId],via:'אבי כלת '+esc(sNm)};
+    }
+  });
+
+  // חתנים → אבי החתן = מחותן
+  (cinOf[id]||[]).forEach(chatan=>{
+    const avId=(chatan["מס' תורם אב"]||'').trim();
+    if(avId&&avId!=='0'&&byId[avId]&&!mechs[avId]){
+      const chNm=(chatan['תואר']?chatan['תואר']+' ':'')+(chatan['שם_מלא']||chatan['משפחה']||'');
+      mechs[avId]={rec:byId[avId],via:'אבי חתן '+esc(chNm)};
+    }
+  });
+
+  const list=Object.entries(mechs);
+  if(!list.length){
+    panel.innerHTML='<div class="fempty" style="padding:20px">אין מחותנים ידועים</div>';
+    return;
+  }
+  let h=`<div style="margin-bottom:10px;font-size:.82rem;color:var(--mu)">🤝 <strong>${list.length} מחותנים</strong></div>
+    <table class="nb-table"><thead><tr>
+      <th onclick="sortNbTable(this)">שם</th>
+      <th onclick="sortNbTable(this)">עיר</th>
+      <th onclick="sortNbTable(this)">שטיבל</th>
+      <th onclick="sortNbTable(this)">קשר</th>
+    </tr></thead><tbody>`;
+  list.forEach(([mid,{rec,via}])=>{
+    const nm=(rec['תואר']?rec['תואר']+' ':'')+(rec['שם_מלא']||rec['משפחה']||'—');
+    h+=`<tr class="nb-row" data-id="${mid}">
+      <td style="font-weight:600">${esc(nm)}</td>
+      <td style="font-size:.8rem">${esc(rec['עיר']||'')}</td>
+      <td style="font-size:.78rem">${esc(rec['שם שטיבל']||'')}</td>
+      <td style="font-size:.72rem;color:var(--mu)">${via}</td>
+    </tr>`;
+  });
+  h+='</tbody></table>';
   panel.innerHTML=h;
 }
 
@@ -2175,9 +2227,9 @@ function mosadSwitchSub(btn,uid,bi,si){
 
 /* ── Family tree ─────────────────────────────── */
 function switchPanel(p){
-  ['det','fam','str','stib'].forEach((id,i)=>{
+  ['det','fam','mch','str','stib'].forEach((id,i)=>{
     document.getElementById('itab'+i).classList.toggle('active',p===id);
-    document.getElementById(['pDet','pFam','pStr','pStib'][i]).style.display=p===id?'block':'none';
+    document.getElementById(['pDet','pFam','pMch','pStr','pStib'][i]).style.display=p===id?'block':'none';
   });
 }
 
